@@ -38,16 +38,14 @@ impl Part {
 }
 
 fn main() {
-    let mut file = std::fs::File::open("./test_input.txt").unwrap();
+    let mut file = std::fs::File::open("./input.txt").unwrap();
     let mut contents = String::new();
     file.read_to_string(&mut contents).unwrap();
-    let (workflows, parts) = contents
-        .split_once("\r\n\r\n")
-        .expect("always has the break");
+    let (workflows, parts) = contents.split_once("\n\n").expect("always has the break");
 
-    let workflows: Vec<_> = workflows.split("\r\n").collect();
+    let workflows: Vec<_> = workflows.lines().collect();
     let parts: Vec<Part> = parts
-        .split("\r\n")
+        .lines()
         .map(|x| {
             let attributes: Vec<_> = x.split(",").collect();
             let x = attributes[0]
@@ -173,25 +171,7 @@ impl Part2 {
             s: (Self::MIN_RATING, Self::MAX_RATING),
         }
     }
-    fn get_parameter_range(&self, parameter: &str) -> (usize, usize) {
-        match parameter {
-            "x" => {
-                return self.x;
-            }
-            "m" => {
-                return self.m;
-            }
-            "a" => {
-                return self.a;
-            }
-            "s" => {
-                return self.s;
-            }
-            _ => {
-                return (0, 0);
-            }
-        }
-    }
+
     fn change_parameter_value(&mut self, parameter: &str, is_max: bool, new_value: usize) {
         match parameter {
             "x" => {
@@ -227,125 +207,60 @@ impl Part2 {
     }
 
     fn number_of_valid(&self) -> usize {
-        let valid = (self.x.1 - self.x.0)
-            * (self.m.1 - self.m.0)
-            * (self.a.1 - self.a.0)
-            * (self.s.1 - self.s.0);
+        let valid = (self.x.1 - self.x.0 + 1)
+            * (self.m.1 - self.m.0 + 1)
+            * (self.a.1 - self.a.0 + 1)
+            * (self.s.1 - self.s.0 + 1);
         valid
     }
 }
 fn part_2(workflows_map: &HashMap<&str, Vec<&str>>) -> usize {
     let mut result = 0;
 
-    let mut instructions_range: Vec<(String, Part2)> = Vec::new();
-    let initial_workflow = workflows_map.get("in").expect("always exists");
+    let mut instructions_range = vec![("in".to_string(), Part2::new())];
 
-    let mut initial_part = Part2::new();
-    for rule in initial_workflow {
-        if rule.contains(">") {
-            let (parameter, remainder) = rule.split_once(">").expect("verified");
-            let (value, destination) = remainder.split_once(":").expect("always have :");
-            let value = value.parse::<usize>().expect("always number");
-            let mut clone_part = initial_part.clone();
-            let range = initial_part.get_parameter_range(parameter);
-            if range.0 > value && range.1 < value {
-                initial_part.change_parameter_value(parameter, false, value);
-                clone_part.change_parameter_value(parameter, true, value);
-                instructions_range.push((destination.to_owned(), clone_part));
-            } else {
-                initial_part.change_parameter_value(parameter, true, value);
-                clone_part.change_parameter_value(parameter, false, value);
-                instructions_range.push((destination.to_owned(), clone_part));
-            }
-        } else if rule.contains("<") {
-            let (parameter, remainder) = rule.split_once("<").expect("verified");
-            let (value, destination) = remainder.split_once(":").expect("always have :");
-            let value = value.parse::<usize>().expect("always number");
-            let mut clone_part = initial_part.clone();
-            let range = initial_part.get_parameter_range(parameter);
-            if range.0 < value && range.1 > value {
-                initial_part.change_parameter_value(parameter, false, value);
-                clone_part.change_parameter_value(parameter, true, value);
-                instructions_range.push((destination.to_owned(), clone_part));
-            } else {
-                initial_part.change_parameter_value(parameter, true, value);
-                clone_part.change_parameter_value(parameter, false, value);
-                instructions_range.push((destination.to_owned(), clone_part));
-            }
-        } else {
-            //current_workflow = workflows_map.get(rule).expect("always exists");
-            instructions_range.push((rule.to_string(), initial_part));
-            break;
-        }
-    }
+    while let Some((workflow_name, part)) = instructions_range.pop() {
+        let workflow = workflows_map
+            .get(workflow_name.as_str())
+            .expect(format!("will exist {workflow_name}").as_str());
+        let mut part = part.clone();
 
-    println!("{instructions_range:?}");
+        for rule in workflow {
+            if rule.contains(">") {
+                let (parameter, remainder) = rule.split_once(">").expect("verified");
+                let (value, destination) = remainder.split_once(":").expect("always have :");
+                let value = value.parse::<usize>().expect("always number");
+                let mut clone_part = part.clone();
 
-    while instructions_range.len() != 0 {
-        'outer: for i in 0..instructions_range.len() {
-            if i >= instructions_range.len() - 1 {
-                continue;
-            }
-            //println!("{instructions_range:?}");
-            println!("{result:?}");
-            let instruction = &mut instructions_range[i];
-            let mut new_inst: Vec<(String, Part2)> = Vec::new();
-            let workflow = workflows_map
-                .get(instruction.0.as_str())
-                .expect("always exists");
-            for rule in workflow {
-                if rule == &"R" {
-                    instructions_range.swap_remove(i);
-                    break 'outer;
-                } else if rule == &"A" {
-                    result += instruction.1.clone().number_of_valid();
-                    instructions_range.swap_remove(i);
-
-                    break 'outer;
-                } else if rule.contains(">") {
-                    let (parameter, remainder) = rule.split_once(">").expect("verified");
-                    let (value, destination) = remainder.split_once(":").expect("always have :");
-                    let value = value.parse::<usize>().expect("always number");
-                    let mut clone_part = instruction.1.clone();
-                    let range = instruction.1.get_parameter_range(parameter);
-                    if range.0 > value && range.1 < value {
-                        instruction
-                            .1
-                            .change_parameter_value(parameter, false, value);
-
-                        clone_part.change_parameter_value(parameter, true, value);
-
-                        new_inst.push((destination.to_owned(), clone_part));
-                    } else {
-                        instruction.1.change_parameter_value(parameter, true, value);
-                        clone_part.change_parameter_value(parameter, false, value);
-                        new_inst.push((destination.to_owned(), clone_part));
-                    }
-                } else if rule.contains("<") {
-                    let (parameter, remainder) = rule.split_once("<").expect("verified");
-                    let (value, destination) = remainder.split_once(":").expect("always have :");
-                    let value = value.parse::<usize>().expect("always number");
-                    let mut clone_part = instruction.1.clone();
-                    let range = instruction.1.get_parameter_range(parameter);
-                    if range.0 < value && range.1 > value {
-                        instruction
-                            .1
-                            .change_parameter_value(parameter, false, value);
-                        clone_part.change_parameter_value(parameter, true, value);
-                        new_inst.push((destination.to_owned(), clone_part));
-                    } else {
-                        instruction.1.change_parameter_value(parameter, true, value);
-                        clone_part.change_parameter_value(parameter, false, value);
-                        new_inst.push((destination.to_owned(), clone_part));
-                    }
+                part.change_parameter_value(parameter, true, value);
+                clone_part.change_parameter_value(parameter, false, value + 1);
+                if destination == "R" {
+                } else if destination == "A" {
+                    result += clone_part.number_of_valid();
                 } else {
-                    //current_workflow = workflows_map.get(rule).expect("always exists");
+                    instructions_range.push((destination.to_owned(), clone_part));
+                }
+            } else if rule.contains("<") {
+                let (parameter, remainder) = rule.split_once("<").expect("verified");
+                let (value, destination) = remainder.split_once(":").expect("always have :");
+                let value = value.parse::<usize>().expect("always number");
+                let mut clone_part = part.clone();
 
-                    new_inst.push((rule.to_string(), instruction.1));
-                    break;
+                part.change_parameter_value(parameter, false, value);
+                clone_part.change_parameter_value(parameter, true, value - 1);
+                if destination == "R" {
+                } else if destination == "A" {
+                    result += clone_part.number_of_valid();
+                } else {
+                    instructions_range.push((destination.to_owned(), clone_part));
+                }
+            } else {
+                if rule == &"A" {
+                    result += part.number_of_valid();
+                } else if rule != &"R" {
+                    instructions_range.push((rule.to_string(), part));
                 }
             }
-            instructions_range.extend(new_inst);
         }
     }
 

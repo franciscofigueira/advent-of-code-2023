@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::io::Read;
 use std::thread;
 
@@ -12,7 +13,7 @@ fn main() {
     let mut contents = String::new();
     file.read_to_string(&mut contents).unwrap();
     let mut lines: Vec<Spring> = contents
-        .split("\r\n")
+        .lines()
         .map(|x| {
             let (springs, groups) = x.split_once(" ").expect("awlways have space");
             return Spring {
@@ -99,60 +100,14 @@ fn part_2(lines: &mut Vec<Spring>) -> usize {
             lines[i].groups.append(&mut append_2.clone());
         }
         lines[i].conditions.pop();
-
-        //lines[i].conditions.push('?');
     }
-    println!("{lines:?}");
+    //println!("{lines:?}");
 
-    let threads: Vec<_> = (0..lines.len())
-        .map(|i| {
-            let line = lines[i].clone();
-            thread::spawn(move || {
-                let mut line_result: usize = 0;
-                let total_number_damaged_parts: usize = line.groups.iter().sum();
-                let number_known_damaged_parts: usize =
-                    line.conditions.iter().filter(|&n| *n == '#').count();
-                let number_unknown_parts: usize =
-                    line.conditions.iter().filter(|&n| *n == '?').count();
+    let mut cache: HashMap<(usize, usize, usize), u64> = HashMap::new();
 
-                let mut vec_poss: Vec<char> =
-                    vec!['#'; total_number_damaged_parts - number_known_damaged_parts];
-                let mut vec2: Vec<char> = vec![
-                    '.';
-                    number_unknown_parts
-                        - (total_number_damaged_parts
-                            - number_known_damaged_parts)
-                ];
-                vec_poss.append(&mut vec2);
+    for line in lines {}
 
-                let mut result: Vec<Vec<char>> = Vec::new();
-
-                permute(0, vec_poss, &mut result);
-                for perm in result {
-                    let mut j = 0;
-                    let mut cl = line.conditions.clone();
-                    for i in 0..cl.len() {
-                        if cl[i] == '?' {
-                            cl[i] = perm[j];
-                            j += 1;
-                        }
-                    }
-
-                    let res = is_valid(&cl, &line.groups);
-                    if res {
-                        line_result += 1;
-                    }
-                }
-
-                return line_result;
-            })
-        })
-        .collect();
-    for handle in threads {
-        let res = handle.join().unwrap();
-        result += res;
-    }
-    result
+    result as usize
 }
 
 fn is_valid(attempt: &Vec<char>, groups: &Vec<usize>) -> bool {
@@ -228,10 +183,3 @@ fn tes() {
 
     println!(" sasd{result:?}");
 }
-
-// fn factorial(num: usize) -> usize {
-//     (1..=num).product()
-// }
-// fn binomial_coef(n: usize, k: usize) -> usize {
-//     return factorial(n) / (factorial(k) * factorial(n - k));
-// }
